@@ -1,60 +1,62 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { default as classroomData } from '../data/classroom';
 import { UtilsService } from 'src/utils/utils.service';
+import { Classroom } from './classroom.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class ClassroomService {
-  constructor(private readonly UtilsService: UtilsService) {}
-  getAllClassroom(xml: string) {
+  constructor(
+    private readonly UtilsService: UtilsService,
+    @InjectRepository(Classroom) private classroomRepository: Repository<Classroom>
+  ) {}
+
+  async getAllClassroom(xml?: string): Promise<Classroom[] | string> {
     if (xml === 'true') {
-      const jsonForXml = JSON.stringify({ classrom_list: classroomData });
-      return this.UtilsService.convertJSONtoXML(jsonForXml);
-    }
-    return classroomData;
-  }
-
-  createClassroom(Classroom: any) {
-    classroomData.push({
-      id_classroom: classroomData[classroomData.length - 1].id_classroom + 1,
-      ...Classroom,
-    });
-
-    return { message: 'Aula creada satisfactoriamente' };
-  }
-
-  getClassroom(id: number, xml: string) {
-    let i = 0;
-    while (i < classroomData.length && classroomData[i].id_classroom != id) {
-      i++;
-    }
-    if (xml === 'true') {
-      const jsonForXml = JSON.stringify({ classrom_list: classroomData });
-      return this.UtilsService.convertJSONtoXML(jsonForXml);
+      const jsonForXml = JSON.stringify({ classroom_list: classroomData });
+      const xmlResult = this.UtilsService.convertJSONtoXML(jsonForXml);
+      return await xmlResult;
+    } else {
+      return classroomData;
     }
   }
 
-  updateClassroom(ClassroomUpdated) {
-    let i = 0;
-    while (
-      i < classroomData.length &&
-      classroomData[i].id_classroom != ClassroomUpdated.id_classroom
-    ) {
-      i++;
-    }
-    if (classroomData[i]) {
-      classroomData[i] = ClassroomUpdated;
-      return classroomData[i];
-    } else throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+  async createClassroom(Classroom: any): Promise<Classroom[]> {
+    const newClassroom = this.classroomRepository.create(Classroom);
+    return this.classroomRepository.save(newClassroom);
   }
 
-  deleteClassroom(id: number) {
-    let i = 0;
-    while (i < classroomData.length && classroomData[i].id_classroom != id) {
-      i++;
+  async getClassroom(id_classroom: number, xml: string): Promise<Classroom | string | null> {
+    const classroom = classroomData.find((classroom) => classroom.id_classroom === id_classroom);
+    if (classroom != null) {
+      if (xml === 'true') {
+        const jsonForXml = JSON.stringify(classroom);
+        return await this.UtilsService.convertJSONtoXML(jsonForXml);
+      } else {
+        return classroom;
+      }
+    } else {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
     }
-    if (classroomData[i]) {
-      const deletedClassroom = classroomData.splice(i, 1);
-      return deletedClassroom;
-    } else throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+  }
+
+  async updateClassroom(ClassroomUpdated: any): Promise<Classroom> {
+    const classroom = classroomData.find((classroom) => classroom.id_classroom === ClassroomUpdated.id_classroom);
+    if (classroom) {
+      Object.assign(classroom, ClassroomUpdated);
+      return classroom;
+    } else {
+      throw new Error('Classroom no encontrado');
+    }
+  }
+
+  async deleteClassroom(id_classroom: number): Promise<void> {
+    const index = classroomData.findIndex((classroom) => classroom.id_classroom === id_classroom);
+    if (index !== -1) {
+      classroomData.splice(index, 1);
+    } else {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    }
   }
 }
